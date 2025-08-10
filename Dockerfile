@@ -27,13 +27,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         
 # Add a non‑root user (helps with security on k3s)
 RUN addgroup --system app && adduser --system --ingroup app app
-WORKDIR /app
+
 COPY --from=build /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
-COPY generate_demo.py ./
+
 #COPY .env.example .env   # optional – you can delete this line if you never ship a .env
 
 # Switch to non‑root user
 USER app
+WORKDIR /app
+COPY generate_demo.py ./
 
 # Entrypoint – the script will be executed by the CronJob
 ENTRYPOINT ["python", "/app/generate_demo.py"]
