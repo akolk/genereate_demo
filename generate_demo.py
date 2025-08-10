@@ -24,6 +24,7 @@ from dotenv import load_dotenv
 from github import Github, Issue, GithubException
 from git import Repo, GitCommandError
 import openai
+import json
 
 # ----------------------------------------------------------------------
 # 1️⃣  Load configuration from the environment
@@ -38,6 +39,42 @@ if not all([GH_TOKEN, OPENAI_KEY, TARGET_REPOS]):
 
 ISSUE_LABEL = os.getenv("PYTHON_DEMONSTRATOR_LABEL", "python_demonstrator")
 
+
+def safe_save_files(files: dict, base_dir: pathlib.Path):
+    """
+    Write each ``filename: content`` pair to ``base_dir`` after sanitising the name.
+    """
+    base_dir = base_dir.resolve()                 # absolute path of the project root
+    for raw_name, content in files.items():
+        # ---- 1️⃣ Reject dangerous names -------------------------------
+        # - Absolute paths (start with / or a drive letter)
+        # - Path traversal (contain "..")
+        # - Empty or whitespace‑only names
+        if not raw_name or raw_name.strip() == "":
+            raise ValueError("Empty filename supplied.")
+        if pathlib.Path(raw_name).is_absolute():
+            raise ValueError(f"Absolute path not allowed: {raw_name}")
+        if ".." in pathlib.Path(raw_name).parts:
+            raise ValueError(f"Path traversal detected in: {raw_name}")
+
+        # ---- 2️⃣ Build the final path ---------------------------------
+        target_path = (base_dir / raw_name).resolve()
+
+        # Ensure the resolved path is still inside `base_dir`
+        if not str(target_path).startswith(str(base_dir)):
+            raise ValueError(f"File {raw_name} resolves outside project root.")
+
+        # ---- 3️⃣ Create parent directories if needed -----------------
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # ---- 4️⃣ Write the file ---------------------------------------
+        # Use UTF‑8 encoding; you can also add a trailing newline if you like.
+        target_path.write_text(content, encoding="utf-8")
+        print(f"✅  Saved {target_path.relative_to(base_dir)}")
+
+
+
+
 # ----------------------------------------------------------------------
 # 2️⃣  Helper utilities
 # ----------------------------------------------------------------------
@@ -47,23 +84,26 @@ def slugify(text: str) -> str:
     text = re.sub(r"[\s_-]+", "_", text)
     return text[:50] or f"demo_{uuid.uuid4().hex[:8]}"
 
-def generate_code(prompt: str) -> str:
+def generate_code(prompt: str) -> Any:
     openai.api_key = OPENAI_KEY
     resp = openai.ChatCompletion.create(
         model="gpt-4o-mini",
         messages=[
             {"role": "system",
-             "content": "You are a Python code generator. Return only runnable .py code."},
+             "content": """
+             You are a code generator. Provide the generated files as a JSON object where each key is the file name
+             (relative to the project root) and each value is the file content.
+              Only output pure JSON, nothing else.
+             """},
             {"role": "user", "content": prompt},
         ],
+        response_format={"type": "json_object"}, 
         temperature=0.2,
     )
-    txt = resp.choices[0].message.content.strip()
-    if txt.startswith("```python"):
-        txt = txt[len("```python"):].strip()
-    if txt.endswith("```"):
-        txt = txt[:-3].strip()
-    return txt
+    json_text = resp.choices[0].message.content
+    files_dict = json.loads(json_text)  
+
+    return file_dict
 
 def comment_on_issue(issue: Issue.Issue, message: str):
     issue.create_comment(message)
@@ -266,12 +306,11 @@ def process_one_repo(gh: Github, full_name: str) -> None:
         )
         print(f"   ⚙️  Generating code for issue #{issue.number}")
 
-        code = generate_code(prompt)
-
-        fname = slugify(title) + ".py"
-        fpath = work_dir / fname
-        fpath.write_text(code, encoding="utf-8")
-        print(f"       📄 {fname}")
+        files_dict = generate_code(prompt)
+        # ----------------------------------------------------------------------
+        # 3️⃣ Choose a destination folder (e.g. ./generated_project) and save
+        # ----------------------------------------------------------------------
+        safe_save_files(files_dict, work_dir)
 
         branch = f"demo-{issue.number}-{uuid.uuid4().hex[:6]}"
         try:
