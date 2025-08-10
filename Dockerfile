@@ -20,6 +20,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # -------------------------------------------------------------
 FROM python:3.12-slim
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git \
+        gcc \
+        && rm -rf /var/lib/apt/lists/*
+        
 # Add a non‑root user (helps with security on k3s)
 RUN addgroup --system app && adduser --system --ingroup app app
 WORKDIR /app
