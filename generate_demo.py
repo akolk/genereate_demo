@@ -285,6 +285,7 @@ def process_one_repo(gh: Github, full_name: str) -> None:
         safe_save_files(files_dict, work_dir)
 
         branch = f"demo-{issue.number}-{uuid.uuid4().hex[:6]}"
+        print(branch)
         try:
             git_repo.git.checkout("-b", branch)
         except GitCommandError as e:
@@ -297,6 +298,7 @@ def process_one_repo(gh: Github, full_name: str) -> None:
             for p in work_dir.rglob("*")
             if p.is_file()
         ]
+        print(paths_to_add)
         git_repo.index.add(paths_to_add)
 
         commit_msg = f"Add demo for issue #{issue.number}: {title}"
