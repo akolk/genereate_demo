@@ -274,11 +274,11 @@ def process_one_repo(gh: Github, full_name: str) -> None:
         title = issue.title
         body = issue.body or ""
         prompt = (
-            f"# Issue #{issue.number}: {title}\n\n{body}\n\n"
-            "# Write a single Python script that satisfies the request."
+            f"# {issue.body} "
         )
         print(f"   ⚙️  Generating code for issue #{issue.number}")
-
+        print(f"   ⚙️  #{issue.body}")
+          
         files_dict = generate_code(prompt)
 
         # Save every file the model returned
@@ -304,6 +304,7 @@ def process_one_repo(gh: Github, full_name: str) -> None:
 
         git_repo.remote(name="origin").push(refspec=f"{branch}:{branch}")
 
+        
         pr = repo.create_pull(
             title=commit_msg,
             body=(
