@@ -296,7 +296,7 @@ def process_one_repo(gh: Github, full_name: str) -> None:
         paths_to_add = [
             str(p.relative_to(work_dir))
             for p in work_dir.rglob("*")
-            if p.is_file() and not p.startswith(".git/")
+            if p.is_file() and ".git" not in p.parts
         ]
         print(paths_to_add)
         git_repo.index.add(paths_to_add)
