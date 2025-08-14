@@ -58,7 +58,7 @@ def generate_code(prompt: str) -> Any:
     system_prompt = """
     You are a Python code generator.
 
-    • Write **only Python code** – no other languages.
+    • Use the most current versions of the dependencies.
     • If the requested solution should be a web application, implement it with **Streamlit**.
     • **Always generate a Dockerfile** that can build and run the produced Python code
       (including Streamlit UI if present). Place the Dockerfile at the repository root
@@ -69,6 +69,7 @@ def generate_code(prompt: str) -> Any:
       (relative to the repository root) and each value is the complete file content.
     • Do **not** include any additional text, explanations or markdown – the output
       must be pure JSON.
+      And generate tests if if the code is running in python with pytest for eample
     """
 
     resp = openai.ChatCompletion.create(
